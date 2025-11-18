@@ -1,30 +1,276 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mensagem no WhatsApp</title>
+    <title>Timer Pomodoro</title>
+    <style>
+        /* --- Estilos Gerais e Variáveis de Cor --- */
+        :root {
+            --bg-color: #2c3e50;
+            --primary-color: #3498db;
+            --secondary-color: #e74c3c;
+            --text-color: #ecf0f1;
+            --card-bg: #34495e;
+        }
 
-    <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            text-align: center;
+        }
+
+        /* --- Container Principal --- */
+        .container {
+            background-color: var(--card-bg);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 400px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+        }
+
+        /* --- Display do Timer --- */
+        #timer-display {
+            font-size: 5rem;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            margin: 20px 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            border-radius: 10px;
+            letter-spacing: 5px;
+        }
+
+        /* --- Botões de Controle --- */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            font-size: 1.1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button#reset-btn {
+            background-color: #95a5a6;
+        }
+
+        button#reset-btn:hover {
+            background-color: #7f8c8d;
+        }
+
+        /* --- Botões de Presets --- */
+        .presets {
+            display: flex;
+            justify-content: space-around;
+            gap: 10px;
+        }
+
+        .preset-btn {
+            flex-grow: 1;
+            background-color: transparent;
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 10px;
+            font-size: 0.9rem;
+        }
+        
+        .preset-btn:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        /* --- Responsividade --- */
+        @media (max-width: 480px) {
+            #timer-display {
+                font-size: 4rem;
+            }
+            .controls {
+                flex-direction: column;
+            }
+            button {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
+<body>
 
-<body class="bg-light">
+    <main class="container">
+        <h1>Pomodoro Timer</h1>
+        
+        <div id="timer-display">25:00</div>
+        
+        <div class="controls">
+            <button id="start-pause-btn">Iniciar</button>
+            <button id="reset-btn">Reiniciar</button>
+        </div>
+        
+        <div class="presets">
+            <button class="preset-btn" onclick="setTime(25 * 60)">Trabalho</button>
+            <button class="preset-btn" onclick="setTime(5 * 60)">Pausa Curta</button>
+            <button class="preset-btn" onclick="setTime(15 * 60)">Pausa Longa</button>
+        </div>
+    </main>
 
-    <div class="container text-center mt-5">
-        <h2>Exemplo de Botão com Mensagem</h2>
-        <p>Clique no botão abaixo:</p>
-
-        <button class="btn btn-primary btn-lg" onclick="mostrarMensagem()">
-            Clique aqui
-        </button>
-    </div>
+    <!-- Áudio de notificação embutido no código (Data URI) -->
+    <audio id="alarm-sound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjiS2Oy9diMFl2+z5N17ZJ0=">
+    </audio>
 
     <script>
-        function mostrarMensagem() {
-            alert("Olá! Esta é a mensagem que aparece ao clicar no botão 😄");
-        }
-    </script>
+        // --- Variáveis de Estado ---
+        let timeInSeconds = 25 * 60; // Tempo inicial: 25 minutos
+        let timerInterval = null;
+        let isRunning = false;
 
+        // --- Referências aos Elementos do DOM ---
+        const timerDisplay = document.getElementById('timer-display');
+        const startPauseBtn = document.getElementById('start-pause-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const alarmSound = document.getElementById('alarm-sound');
+
+        // --- Funções Principais ---
+
+        /**
+         * Atualiza o display do timer e o título da página.
+         */
+        function updateDisplay() {
+            const minutes = Math.floor(timeInSeconds / 60);
+            const seconds = timeInSeconds % 60;
+            const displayText = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            
+            timerDisplay.textContent = displayText;
+            document.title = isRunning ? `⏱ ${displayText} - Pomodoro Timer` : "Pomodoro Timer";
+        }
+
+        /**
+         * Inicia o timer.
+         */
+        function startTimer() {
+            if (isRunning) return; // Evita múltiplos intervalos
+
+            isRunning = true;
+            startPauseBtn.textContent = 'Pausar';
+
+            timerInterval = setInterval(() => {
+                timeInSeconds--;
+                updateDisplay();
+
+                if (timeInSeconds < 0) {
+                    pauseTimer(); // Pausa o timer
+                    timeInSeconds = 0;
+                    updateDisplay();
+                    onTimerComplete();
+                }
+            }, 1000);
+        }
+
+        /**
+         * Pausa o timer.
+         */
+        function pauseTimer() {
+            if (!isRunning) return;
+
+            isRunning = false;
+            startPauseBtn.textContent = 'Iniciar';
+            clearInterval(timerInterval);
+        }
+        
+        /**
+         * Reinicia o timer para o último valor definido.
+         */
+        function resetTimer() {
+            pauseTimer();
+            // Volta para o último preset selecionado ou o padrão
+            const lastPreset = parseInt(document.body.dataset.lastPreset || 25 * 60);
+            timeInSeconds = lastPreset;
+            updateDisplay();
+        }
+        
+        /**
+         * Define um novo tempo para o timer.
+         * @param {number} seconds - O tempo em segundos.
+         */
+        function setTime(seconds) {
+            pauseTimer();
+            timeInSeconds = seconds;
+            document.body.dataset.lastPreset = seconds; // Salva o último preset
+            updateDisplay();
+        }
+
+        /**
+         * Ações a serem executadas quando o timer chega a zero.
+         */
+        function onTimerComplete() {
+            alarmSound.play();
+            
+            // Solicita permissão e envia uma notificação
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification("Timer Concluído!", {
+                    body: "Hora de fazer uma pausa!",
+                    icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+                });
+            } else if ("Notification" in window && Notification.permission !== "denied") {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        new Notification("Timer Concluído!", {
+                            body: "Hora de fazer uma pausa!"
+                        });
+                    }
+                });
+            }
+        }
+
+        // --- Event Listeners ---
+        startPauseBtn.addEventListener('click', () => {
+            if (isRunning) {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        });
+
+        resetBtn.addEventListener('click', resetTimer);
+
+        // --- Inicialização ---
+        document.body.dataset.lastPreset = timeInSeconds;
+        updateDisplay();
+    </script>
 </body>
 </html>
